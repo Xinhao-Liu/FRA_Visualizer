@@ -15,11 +15,15 @@ library(scales)
 ui <- fluidPage(
 
     # Application title
-    h1("FRA REA Data Visualizer"),
-    h2("RailTEC Safety and Risk Group"),
-    h5("Version 1.0, 3/24/2023"),
     
-    theme = shinythemes::shinytheme('sandstone'),
+    theme = shinythemes::shinytheme('spacelab'),
+    
+    titlePanel(
+      div(img(src = "https://skins.webservices.illinois.edu/files/15890/wizard_header.png?iIndex=0928T094828", height = 100, width = 500, class = "pull-right"),
+          h1("FRA REA Data Visualizer"),
+          h3("RailTEC Safety and Risk Group"),
+          h5("Version 1.0, 3/24/2023"))
+      ),
 
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
@@ -91,8 +95,7 @@ ui <- fluidPage(
         ),
 
         # Show a plot of the generated distribution
-        mainPanel(
-          tabsetPanel(
+        mainPanel(tabsetPanel(
             tabPanel("Plot", plotOutput('Number', width = 1200, height = 800), downloadButton("downloadPlot", "Download Plot")),
             tabPanel('Summary Statistics', DT::DTOutput('Summary'),downloadButton("downloadTable", "Download Table")),
             tabPanel("Example Data", DT::DTOutput('All'), downloadButton("downloadData", "Download Data"), textOutput("Data_Info"))
