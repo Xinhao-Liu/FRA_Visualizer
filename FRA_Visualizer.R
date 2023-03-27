@@ -112,9 +112,10 @@ server <- function(input, output) {
     raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA_1996_2022_3.22.2023.csv")
     
     raw %>% 
+      filter(!is.na(TYPE_clean), !is.na(TotalDerail), TotalDerail >= 0) %>% 
       mutate(Accident_type = ifelse(TYPE_clean == "01", "Derailments",
                              ifelse(TYPE_clean %in% c("02","03","04","05","06","08"), "Collisions",
-                             ifelse(TYPE_clean == "07", "Grace Crossing", "Other")))) %>% 
+                             ifelse(TYPE_clean == "07", "Grade Crossing", "Other")))) %>% 
       mutate(Date = as.Date(as.character(Date),format = "%Y%m%d")) %>% 
       filter(`class 1` %in% input$RRClass_type,
              TrainType %in% input$Train_type,
@@ -233,12 +234,13 @@ server <- function(input, output) {
         ggplot()+
         geom_col(aes(x=fct_rev(fct_reorder(`Group Name`, `Total Number of Cars`)), y = `Total Number of Cars`), fill = "#0000FF")+
         geom_line(aes(group=1,
-                      x=fct_rev(fct_reorder(`Group Name`, `Total Number of Cars`)), y = parse_number(`Cumulative Percentage`)/100 * max(`Total Number of Cars`)),
+                      x=fct_rev(fct_reorder(`Group Name`, `Cumulative Percentage`)), 
+                      y = parse_number(`Cumulative Percentage`)/100 * max(`Total Number of Cars`)),
                   color = "red", lwd = 1)+
         xlab("Accident Cause")+
         ylab("Number of Cars Derailed") +
         theme_bw() + 
-        scale_y_continuous(expand  = c(0,100), labels = comma,
+        scale_y_continuous(labels = comma,
                            sec.axis = sec_axis(~., 
                                                breaks = seq(0,max_val,max_val/5),
                                                labels = c("0%","20%","40%","60%","80%","100%"),
