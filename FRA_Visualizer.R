@@ -233,9 +233,9 @@ server <- function(input, output) {
         select(`Total Number of Cars`))
       summarize() %>% 
         ggplot()+
-        geom_col(aes(x=fct_rev(fct_reorder(`Group Name`, `Total Number of Cars`)), y = `Total Number of Cars`), fill = "#0000FF")+
+        geom_col(aes(x=fct_reorder(`Group Name`, parse_number(`Cumulative Percentage`)+0.01), y = `Total Number of Cars`), fill = "#0000FF")+
         geom_line(aes(group=1,
-                      x=fct_rev(fct_reorder(`Group Name`, `Cumulative Percentage`)), 
+                      x=`Group Name`, 
                       y = parse_number(`Cumulative Percentage`)/100 * max(`Total Number of Cars`)),
                   color = "red", lwd = 1)+
         xlab("Accident Cause")+

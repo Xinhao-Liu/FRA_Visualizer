@@ -1,4 +1,5 @@
-raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA_1996_2022_3.22.2023.csv")
+library(readr)
+raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA_1996_2022_4.2.2023.csv")
 
 raw %>% 
   filter(!is.na(TYPE_clean), !is.na(TotalDerail), TotalDerail >= 0) %>% 
