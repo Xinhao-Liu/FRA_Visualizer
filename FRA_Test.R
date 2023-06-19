@@ -50,11 +50,11 @@ aaa = raw %>%
                                 ifelse(TYPE_clean %in% c("02","03","04","05","06","08"), "Collisions",
                                        ifelse(TYPE_clean == "07", "Grade Crossing", "Other")))) %>% 
   mutate(Date = as.Date(as.character(Date),format = "%Y%m%d")) %>% 
-  filter(TrainType %in% c("F"),
+  filter(#TrainType %in% c("F"),
          Accident_type %in% c("Derailments","Collisions"),
-         #`class 1`=="class1",
+         `class 1`=="class1",
          `Railroad Successor` %in% c("BNSF","KCS","UP","CSX","NS","CNGT","CP(US)"),
-         ACCTRK %in% c(1,3),
+         ACCTRK %in% c(2,4),
          Date <= "2022-12-31",
          Date >= "2013-01-01") %>%
   mutate(`Railroad Successor` = ifelse(`Railroad Successor` == "CNGT", "CN",
@@ -83,8 +83,11 @@ final =
   mutate(traffic_value = traffic_val) %>% 
   mutate(ACCTRK = as.factor(ACCTRK)) %>% 
   select(`Railroad Successor`,`class 1`,ACCTRK,Accident_type,Category,traffic_value,Year) %>% 
-  group_by(Accident_type,Year) %>% 
+  group_by(Category,Year) %>% 
   mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
+  ungroup() %>% 
+  group_by(Year) %>%
+  mutate(final_traffic = max(final_traffic)) %>% 
   mutate(rate=count/final_traffic) %>% 
   unique() %>% 
   select(Accident_type,Year,rate) %>% 

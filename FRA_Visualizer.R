@@ -200,6 +200,9 @@ server <- function(input, output) {
       traffic_data() %>% 
         group_by(Accident_type,Year) %>% 
         mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
+        ungroup() %>% 
+        group_by(Year) %>%
+        mutate(final_traffic = max(final_traffic)) %>% 
         mutate(rate=count/final_traffic) %>% 
         unique() %>% 
         select(Accident_type,Year,rate) %>% 
@@ -209,6 +212,9 @@ server <- function(input, output) {
       traffic_data() %>% 
         group_by(Category,Year) %>% 
         mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
+        ungroup() %>% 
+        group_by(Year) %>%
+        mutate(final_traffic = max(final_traffic)) %>% 
         mutate(rate=count/final_traffic) %>% 
         unique() %>% 
         select(Category,Year,rate) %>% 
@@ -218,6 +224,9 @@ server <- function(input, output) {
       traffic_data() %>% 
         group_by(`Railroad Successor`,Year) %>% 
         mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
+        ungroup() %>% 
+        group_by(Year) %>%
+        mutate(final_traffic = max(final_traffic)) %>% 
         mutate(rate=count/final_traffic) %>% 
         unique() %>% 
         select(`Railroad Successor`,Year,rate) %>% 
@@ -228,6 +237,9 @@ server <- function(input, output) {
         mutate(ACCTRK = as.factor(ACCTRK)) %>% 
         group_by(ACCTRK,Year) %>% 
         mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
+        ungroup() %>% 
+        group_by(Year) %>%
+        mutate(final_traffic = max(final_traffic)) %>% 
         mutate(rate=count/final_traffic) %>% 
         unique() %>% 
         select(ACCTRK,Year,rate) %>% 
