@@ -93,6 +93,11 @@ ui <- fluidPage(
                         choices = c("Mainline"=1,"Siding"=3,"Yard"=2,"Industry"=4),
                         selected = 1),
             
+            checkboxGroupInput("track_class",
+                               h4("FRA Track Class(es)"),
+                               choices = c("1","2","3","4","5","6","7","8","9","X"),
+                               selected = c("1","2","3","4","5","6","7","8","9","X")),
+            
             checkboxGroupInput("accident_cause",
                         h4("Accident Cause Group(s)"),
                         choices = c("Track"="T","Equipment"="E","Human Factor"="H","Signal"="S","Miscellaneous"="M"),
@@ -150,7 +155,8 @@ server <- function(input, output) {
              ACCTRK %in% input$track_type,
              Category %in% input$accident_cause,
              Date <= input$date[2],
-             Date >= input$date[1]) %>% 
+             Date >= input$date[1],
+             TRKCLAS %in% input$track_class) %>% 
       filter(if(length(input$RRClass_type) == 1 && input$RRClass_type == 'class1') {
                   `Railroad Successor` %in% input$ClassI_type
               } else {
@@ -500,7 +506,7 @@ server <- function(input, output) {
   
   output$All = DT::renderDT({
     data() %>% 
-      select(Date, Accident_type, TotalDerail, Group, HIGHSPD)
+      select(Date,RAILROAD,STATION, State, Accident_type, TotalDerail, Group, HIGHSPD)
   })
   
   
