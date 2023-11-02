@@ -181,7 +181,7 @@ server <- function(input, output) {
                                            ifelse(`Railroad Successor` == "CP(US)", "CP", `Railroad Successor`))) %>% 
       mutate(traffic_name = paste(ifelse(`class 1`=="class1", `Railroad Successor`, "Non"),
                                   "ClassI",
-                                  "Freight",
+                                  "Freight", 
                                   ifelse(ACCTRK%in%c(1,3),"Both_Mainline","Non_Mainline"),sep = "_")) %>% 
       select(`Railroad Successor`,`class 1`,ACCTRK,Accident_type,Category,traffic_name,Year) %>% 
       left_join(raw_traffic,by=c("traffic_name"="...1")) %>% 
@@ -464,7 +464,8 @@ server <- function(input, output) {
                   axis.title.y = element_text(color = "#000000", size = 20, face="bold",
                                               margin = margin(t = 0, r = 0, b = 0, l = 10)),
                   legend.title = element_text(color = "#000000", size = 16),
-                  legend.text = element_text(color = "#000000", size = 16))
+                  legend.text = element_text(color = "#000000", size = 16))+
+                  scale_color_manual(values = c("#000000", "#EBC201", "#0000FF", "#FF00FF", "#00E8A6"))
       } else if (input$breakdown == "Accident Type") {
         summary_data_rate() %>% 
           ggplot(aes(x=as.character(Year),y=rate,
