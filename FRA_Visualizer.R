@@ -438,7 +438,8 @@ server <- function(input, output) {
                             axis.title.y = element_text(color = "#000000", size = 20, face="bold",
                                                         margin = margin(t = 0, r = 0, b = 0, l = 10)),
                             legend.title = element_text(color = "#000000", size = 16),
-                            legend.text = element_text(color = "#000000", size = 16))
+                            legend.text = element_text(color = "#000000", size = 16))+
+                            scale_color_manual(values = c("#000000", "#EBC201", "#0000FF", "#FF00FF", "#00E8A6", "#FF0000", "#FFFF00"))
       } else if (input$breakdown == "Accident Cause Group") {
         summary_data_rate() %>% 
           ggplot(aes(x=as.character(Year),y=rate,
