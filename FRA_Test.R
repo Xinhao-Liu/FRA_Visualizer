@@ -119,6 +119,8 @@ ggplot(final,aes(x=as.character(Year),y=rate,group=name,color=name))+
         legend.title = element_text(color = "#000000", size = 16),
         legend.text = element_text(color = "#000000", size = 16))
 
+#### total damage
+
 
 
 
