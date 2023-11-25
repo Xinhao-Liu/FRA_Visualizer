@@ -541,7 +541,7 @@ server <- function(input, output) {
                      color=`Class I RR Company`))+
                       geom_line(size=2)+
                       xlab("Year")+
-                      ylab("Rate (per million miles)") +
+                      ylab("Rate (per Million Train Miles)") +
                       theme_bw() + 
                       theme(panel.grid.major = element_blank(), 
                             panel.grid.minor = element_blank(),
@@ -568,7 +568,7 @@ server <- function(input, output) {
                      color=`Accident Cause Group`))+
             geom_line(size=2)+
             xlab("Year")+
-            ylab("Rate (per million miles)") +
+            ylab("Rate (per Million Train Miles)") +
             theme_bw() + 
             theme(panel.grid.major = element_blank(), 
                   panel.grid.minor = element_blank(),
@@ -595,7 +595,7 @@ server <- function(input, output) {
                      color=`Accident Type`))+
                         geom_line(size=2)+
                         xlab("Year")+
-                        ylab("Rate (per million miles)") +
+                        ylab("Rate (per Million Train Miles)") +
                         theme_bw() + 
                         theme(panel.grid.major = element_blank(), 
                               panel.grid.minor = element_blank(),
