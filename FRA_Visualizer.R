@@ -192,7 +192,7 @@ server <- function(input, output) {
   })
   
   traffic_data = eventReactive(input$Button0, {
-    raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2022_class1_ONE.csv")
+    raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2023_class1_ONE.csv")
     
     inter = data() %>% 
       mutate(`Railroad Successor` = ifelse(`Railroad Successor` == "CNGT", "CN",
