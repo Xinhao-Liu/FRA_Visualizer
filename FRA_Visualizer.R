@@ -159,9 +159,9 @@ server <- function(input, output) {
     raw %>% 
       filter(Year > 1996) %>% 
       filter(!is.na(TYPE_clean), !is.na(TotalDerail), TotalDerail >= 0) %>% 
-      mutate(Accident_type = ifelse(TYPE_clean == "01", "Derailments",
-                             ifelse(TYPE_clean %in% c("02","03","04","05","06","08"), "Collisions",
-                             ifelse(TYPE_clean == "07", "Grade Crossing", "Other")))) %>% 
+      mutate(Accident_type = ifelse(TYPE_clean == 1, "Derailments",
+                                    ifelse(TYPE_clean %in% c(2,3,4,5,6,8), "Collisions",
+                                           ifelse(TYPE_clean == 7, "Grade Crossing", "Other")))) %>% 
       mutate(Date = as.Date(as.character(Date),format = "%Y%m%d")) %>% 
       mutate(HIGHSPD = as.numeric(HIGHSPD)) %>% 
       mutate(TotalConsist = as.numeric(TotalConsist)) %>% 
@@ -178,10 +178,10 @@ server <- function(input, output) {
              TotalConsist >= input$train_length[1],
              TotalConsist <= input$train_length[2]) %>% 
       filter(if(length(input$RRClass_type) == 1 && input$RRClass_type == 'class1') {
-                  `Railroad Successor` %in% input$ClassI_type
-              } else {
-                SUMS != "999" 
-              })
+        `Railroad Successor` %in% input$ClassI_type
+      } else {
+        SUMS != "999" 
+      })
       
     
   })
