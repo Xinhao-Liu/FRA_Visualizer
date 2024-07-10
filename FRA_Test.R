@@ -1,5 +1,5 @@
 library(readr)
-raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA_1996_2022_4.2.2023.csv")
+raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA.csv")
 
 raw %>% 
   filter(!is.na(TYPE_clean), !is.na(TotalDerail), TotalDerail >= 0) %>% 
@@ -29,7 +29,7 @@ raw %>%
   select(`Group Name`,Group, Frequency, `Total Number of Cars`, `Cumulative Percentage`)
 
 
-traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2022_All.csv")
+traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2023_class1_ONE.csv")
 
 row_names <- row.names(t(traffic %>% 
                            select(-`1996`) %>% 
@@ -42,7 +42,7 @@ test = data.frame(t(traffic %>%
   mutate(Year = as.numeric(row_names)) %>% 
   rename(traffic = t.traffic.....select...1996.......filter....1.....All_Freight.......)
 
-raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2022_class1_ONE.csv")
+raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2023_class1_ONE.csv")
 
 aaa = raw %>% 
   # filter(!is.na(TYPE_clean), !is.na(TotalDerail), TotalDerail >= 0) %>% 
@@ -119,7 +119,25 @@ ggplot(final,aes(x=as.character(Year),y=rate,group=name,color=name))+
         legend.title = element_text(color = "#000000", size = 16),
         legend.text = element_text(color = "#000000", size = 16))
 
-#### total damage
+#### 7.10.2024
+raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA.csv")
+
+raw %>% 
+  filter(Year > 1996) %>% 
+  filter(!is.na(TYPE_clean), !is.na(TotalDerail), TotalDerail >= 0) %>% 
+  mutate(Accident_type = ifelse(TYPE_clean == "01", "Derailments",
+                                ifelse(TYPE_clean %in% c("02","03","04","05","06","08"), "Collisions",
+                                       ifelse(TYPE_clean == "07", "Grade Crossing", "Other")))) %>% 
+  mutate(Date = as.Date(as.character(Date),format = "%Y%m%d")) %>% 
+  mutate(HIGHSPD = as.numeric(HIGHSPD)) %>% 
+  mutate(TotalConsist = as.numeric(TotalConsist)) %>% 
+  filter(`class 1` %in% c("non-1"),
+         TrainType %in% c("O"),
+         Accident_type %in% c("Other"),
+         ACCTRK %in% c(1),
+         Category %in% c("H"),
+         Date <= "2020-01-01",
+         Date >= "2010-01-01")
 
 
 
