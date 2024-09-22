@@ -70,9 +70,10 @@ ui <- fluidPage(
         dateRangeInput("date",
                        h4("Date Range"),
                        min = "1997-01-01",
-                       max = floor_date(Sys.Date(), "year") - 1,
+                       #max = floor_date(Sys.Date(), "year") - 1,
+                       max = "2024-06-30",
                        start = "2014-01-01",
-                       end = "2023-12-31",
+                       end = "2024-06-30",
                        format = "yyyy-mm-dd",
                        startview = 'year'),
         
@@ -159,7 +160,7 @@ server <- function(input, output) {
   
   data = eventReactive(input$Button0, {
     
-    raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA.csv")
+    raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/refs/heads/main/All_year_FRA.csv")
     
     raw %>% 
       filter(Year > 1996) %>% 
@@ -192,7 +193,7 @@ server <- function(input, output) {
   })
   
   traffic_data = eventReactive(input$Button0, {
-    raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2024_class1_ONE.csv")
+    raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/refs/heads/main/All%20Traffic%20Data_1996-2024_class1_ONE.csv")
     
     inter = data() %>% 
       mutate(`Railroad Successor` = ifelse(`Railroad Successor` == "CNGT", "CN",
