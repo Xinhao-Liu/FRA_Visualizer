@@ -193,7 +193,7 @@ server <- function(input, output) {
   })
   
   traffic_data = eventReactive(input$Button0, {
-    raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/refs/heads/main/All%20Traffic%20Data_1996-2024_class1_ONE.csv")
+    raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2024_class1_ONE.csv")
     
     inter = data() %>% 
       mutate(`Railroad Successor` = ifelse(`Railroad Successor` == "CNGT", "CN",
@@ -787,7 +787,7 @@ server <- function(input, output) {
   })
   
   show_data_info = eventReactive(input$Button0, {
-    "You can download the processed FRA REA data based on the filters you have selected on the left. The table above is an example that only shows five columns."
+    "You can download the processed FRA REA data based on the filters you have selected on the left. The table above is an example that only shows eight columns."
   })
   
   output$Data_Info = renderText({
