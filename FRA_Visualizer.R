@@ -14,6 +14,10 @@ library(scales)
 # Define UI for application that draws a histogram
 ui <- fluidPage(
   
+  tags$head(
+    tags$title("FRA REA Data Visualizer - RailTEC")
+  ),
+  
   # Application title
   
   theme = shinythemes::shinytheme('spacelab'),
