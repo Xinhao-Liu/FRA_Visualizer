@@ -77,9 +77,9 @@ ui <- fluidPage(
                        h4("Date Range"),
                        min = "1997-01-01",
                        #max = floor_date(Sys.Date(), "year") - 1,
-                       max = "2024-12-31",
-                       start = "2014-01-01",
-                       end = "2024-12-31",
+                       max = "2025-12-31",
+                       start = "2015-01-01",
+                       end = "2025-12-31",
                        format = "yyyy-mm-dd",
                        startview = 'year'),
         
