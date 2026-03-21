@@ -1,4 +1,5 @@
 library(readr)
+library(tidyverse)
 raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA.csv")
 
 raw %>% 
@@ -139,7 +140,33 @@ raw %>%
          Date <= "2020-01-01",
          Date >= "2010-01-01")
 
+#### 3.20.2026
+raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All_year_FRA.csv")
 
+raw %>% 
+  filter(Year == 2025) %>% 
+  filter(`Railroad Successor` == "UP") %>% 
+  mutate(Accident_type = ifelse(TYPE_clean == "01", "Derailments",
+                                ifelse(TYPE_clean %in% c("02","03","04","05","06","08"), "Collisions",
+                                       ifelse(TYPE_clean == "07", "Grade Crossing", "Other")))) %>% 
+  mutate(Date = as.Date(as.character(Date),format = "%Y%m%d")) %>% 
+  mutate(HIGHSPD = as.numeric(HIGHSPD)) %>% 
+  mutate(TotalConsist = as.numeric(TotalConsist)) %>% 
+  filter(Category %in% c("T")) %>% 
+  filter(MS == "MS")
+
+traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2025_class1_ONE.csv")
+
+row_names <- row.names(t(traffic %>% 
+                           select(-`1996`) %>% 
+                           filter(...1=="All_Freight") %>% 
+                           select(`2010`:`2019`)))
+
+test = data.frame(t(traffic %>% 
+                      select(-`1996`) %>% 
+                      select(`2010`:`2019`))) %>% 
+  mutate(Year = as.numeric(row_names)) %>% 
+  rename(traffic = t.traffic.....select...1996.......filter....1.....All_Freight.......)
 
 
 

@@ -11,6 +11,7 @@ library(forcats)
 library(tidyverse)
 library(scales)
 
+
 # Define UI for application that draws a histogram
 ui <- fluidPage(
   
@@ -89,9 +90,9 @@ ui <- fluidPage(
                            selected = "F"),
         
         radioButtons("Hazmat_Only",
-                           h4("Hazmat Involved Only"),
-                           choices = c("Yes"="Yes","No"="No"),
-                           selected = "No"),
+                     h4("Hazmat Involved Only"),
+                     choices = c("Yes"="Yes","No"="No"),
+                     selected = "No"),
         
         checkboxGroupInput("RRClass_type",
                            h4("Railroad Class"),
@@ -127,7 +128,7 @@ ui <- fluidPage(
         
         sliderInput("train_length", 
                     h4("Train Length (Number of Cars)"),
-                    min = 0, max = 250, value = c(0, 250), step = 1),
+                    min = 0, max = 300, value = c(0, 300), step = 1),
         
         sliderInput("derailment_severity", 
                     h4("Number of Cars Derailed"),
@@ -232,13 +233,20 @@ server <- function(input, output) {
   })
   
   
+  # Raw data (cached per session - loaded once, reused across button clicks)
+  raw_accident = reactive({
+    read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/refs/heads/main/All_year_FRA.csv")
+  })
+  
+  raw_traffic_csv = reactive({
+    raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2025_class1_ONE.csv")
+  })
+  
   # main data
   
   data = eventReactive(input$Button0, {
     
-    raw = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/refs/heads/main/All_year_FRA.csv")
-    
-    raw %>% 
+    raw_accident() %>%
       filter(Year > 1996) %>% 
       filter(!is.na(TYPE_clean), !is.na(TotalDerail), TotalDerail >= 0) %>% 
       mutate(Accident_type = ifelse(TYPE_clean == 1, "Derailments",
@@ -266,20 +274,19 @@ server <- function(input, output) {
       filter(if(length(input$RRClass_type) == 1 && input$RRClass_type == 'class1') {
         `Railroad Successor` %in% input$ClassI_type
       } else {
-        SUMS != "999" 
+        TRUE
       }) %>%
       filter(if(input$Hazmat_Only == "Yes") {
-        CARS > 1
+        CARS > 0
       } else {
-        SUMS != "999" 
+        TRUE
       })
-
+    
   })
   
   traffic_data = eventReactive(input$Button0, {
-    raw_traffic = read_csv("https://raw.githubusercontent.com/Xinhao-Liu/FRA_Visualizer/main/All%20Traffic%20Data_1996-2025_class1_ONE.csv")
     
-    inter = data() %>% 
+    inter = data() %>%
       mutate(`Railroad Successor` = ifelse(`Railroad Successor` == "CNGT", "CN",
                                            ifelse(`Railroad Successor` == "CP(US)", "CP", `Railroad Successor`))) %>% 
       mutate(traffic_name = paste(ifelse(`class 1`=="class1", `Railroad Successor`, "Non"),
@@ -287,10 +294,10 @@ server <- function(input, output) {
                                   "Freight", 
                                   ifelse(ACCTRK%in%c(1,3),"Both_Mainline","Non_Mainline"),sep = "_")) %>% 
       select(`Railroad Successor`,`class 1`,ACCTRK,Accident_type,Category,traffic_name,Year) %>% 
-      left_join(raw_traffic,by=c("traffic_name"="...1")) %>% 
+      left_join(raw_traffic_csv(),by=c("traffic_name"="...1")) %>%
       mutate(index = Year - 1996 + 8, traffic_value = 0)
     
-    num_vec = seq(1:nrow(inter))
+    num_vec = seq_len(nrow(inter))
     index_vec = as.vector(inter %>% select(index))[[1]]
     
     final = inter
@@ -309,43 +316,48 @@ server <- function(input, output) {
   
   
   summary_data_FRA = eventReactive(input$Button0,{
-    data() %>% 
-      filter(!is.na(ACCAUSE)) %>% 
-      group_by(ACCAUSE) %>% 
-      mutate(Frequency = n(), total_derail = sum(TotalDerail)) %>% 
-      ungroup() %>% 
-      mutate(frequency_ratio = Frequency/length(SUMS), severity_ratio = total_derail/sum(TotalDerail)) %>%
-      group_by(ACCAUSE) %>% 
-      mutate(`Average Number of Cars Derailed` = round(total_derail/Frequency,1)) %>% 
+    filtered = data() %>% filter(!is.na(ACCAUSE))
+    total_rows = nrow(filtered)
+    total_derail_all = sum(filtered$TotalDerail)
+    filtered %>%
+      group_by(ACCAUSE) %>%
+      summarise(Frequency = n(), total_derail = sum(TotalDerail), .groups = "drop") %>%
+      mutate(
+        frequency_ratio = Frequency / total_rows,
+        severity_ratio = total_derail / total_derail_all,
+        `Average Number of Cars Derailed` = round(total_derail / Frequency, 1)
+      ) %>%
       select(ACCAUSE, `Average Number of Cars Derailed`, Frequency, total_derail, severity_ratio)
-    
   })
   
   summary_data_ADL = eventReactive(input$Button0,{
-    data() %>% 
-      filter(!is.na(Group)) %>% 
-      group_by(Group) %>% 
-      mutate(Frequency = n(), total_derail = sum(TotalDerail)) %>% 
-      ungroup() %>% 
-      mutate(frequency_ratio = Frequency/length(SUMS), severity_ratio = total_derail/sum(TotalDerail)) %>%
-      group_by(Group) %>% 
-      mutate(`Average Number of Cars Derailed` = round(total_derail/Frequency,1)) %>% 
-      select(`Group Name`,Group, `Average Number of Cars Derailed`, Frequency, total_derail, severity_ratio)
-    
+    filtered = data() %>% filter(!is.na(Group))
+    total_rows = nrow(filtered)
+    total_derail_all = sum(filtered$TotalDerail)
+    filtered %>%
+      group_by(`Group Name`, Group) %>%
+      summarise(Frequency = n(), total_derail = sum(TotalDerail), .groups = "drop") %>%
+      mutate(
+        frequency_ratio = Frequency / total_rows,
+        severity_ratio = total_derail / total_derail_all,
+        `Average Number of Cars Derailed` = round(total_derail / Frequency, 1)
+      ) %>%
+      select(`Group Name`, Group, `Average Number of Cars Derailed`, Frequency, total_derail, severity_ratio)
   })
   
   summary_data_money = eventReactive(input$Button0,{
-    data() %>% 
-      filter(!is.na(Group)) %>% 
-      # in million
-      mutate(ACCDMG = ACCDMG / 1000000) %>% 
-      group_by(Group) %>% 
-      mutate(Frequency = n(), total_money = sum(ACCDMG)) %>% 
-      ungroup() %>% 
-      mutate(frequency_ratio = Frequency/length(SUMS), money_ratio = total_money/sum(ACCDMG)) %>%
-      group_by(Group) %>% 
-      mutate(`Average Damage Cost` = round(total_money/Frequency,1)) %>% 
-      select(`Group Name`,Group, `Average Damage Cost`, Frequency, total_money, money_ratio)
+    filtered = data() %>% filter(!is.na(Group)) %>% mutate(ACCDMG = ACCDMG / 1000000)
+    total_rows = nrow(filtered)
+    total_money_all = sum(filtered$ACCDMG)
+    filtered %>%
+      group_by(`Group Name`, Group) %>%
+      summarise(Frequency = n(), total_money = sum(ACCDMG), .groups = "drop") %>%
+      mutate(
+        frequency_ratio = Frequency / total_rows,
+        money_ratio = total_money / total_money_all,
+        `Average Damage Cost` = round(total_money / Frequency, 1)
+      ) %>%
+      select(`Group Name`, Group, `Average Damage Cost`, Frequency, total_money, money_ratio)
   })
   
   summary_data_money_dis = eventReactive(input$Button0,{
@@ -365,57 +377,46 @@ server <- function(input, output) {
   })
   
   summary_data_rate = eventReactive(input$Button0,{
+    td = traffic_data()
+    
+    # Total traffic per year (sum of unique RR+track combos present in filtered data)
+    # Used as shared denominator for Accident Type and Cause Group breakdowns
+    year_traffic = td %>%
+      group_by(Year) %>%
+      summarise(year_traffic = sum(unique(traffic_value)), .groups = "drop")
     
     if (input$breakdown == "Accident Type") {
-      traffic_data() %>% 
-        group_by(Accident_type,Year) %>% 
-        mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
-        ungroup() %>% 
-        group_by(Year) %>%
-        mutate(final_traffic = max(final_traffic)) %>% 
-        mutate(rate=count/final_traffic) %>% 
-        unique() %>% 
-        select(Accident_type,Year,rate) %>% 
-        unique() %>% 
+      td %>%
+        group_by(Accident_type, Year) %>%
+        summarise(count = n(), .groups = "drop") %>%
+        left_join(year_traffic, by = "Year") %>%
+        mutate(rate = count / year_traffic) %>%
+        select(Accident_type, Year, `Accident Count` = count, `Traffic (million train miles)` = year_traffic, rate) %>%
         rename(`Accident Type` = Accident_type)
     } else if (input$breakdown == "Accident Cause Group") {
-      traffic_data() %>% 
-        group_by(Category,Year) %>% 
-        mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
-        ungroup() %>% 
-        group_by(Year) %>%
-        mutate(final_traffic = max(final_traffic)) %>% 
-        mutate(rate=count/final_traffic) %>% 
-        unique() %>% 
-        select(Category,Year,rate) %>% 
-        unique() %>% 
+      td %>%
+        group_by(Category, Year) %>%
+        summarise(count = n(), .groups = "drop") %>%
+        left_join(year_traffic, by = "Year") %>%
+        mutate(rate = count / year_traffic) %>%
+        select(Category, Year, `Accident Count` = count, `Traffic (million train miles)` = year_traffic, rate) %>%
         rename(`Accident Cause Group` = Category)
     } else if (input$breakdown == "Class I RR Company") {
-      traffic_data() %>% 
-        group_by(`Railroad Successor`,Year) %>% 
-        mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
-        ungroup() %>% 
-        group_by(Year) %>%
-        mutate(final_traffic = max(final_traffic)) %>% 
-        mutate(rate=count/final_traffic) %>% 
-        unique() %>% 
-        select(`Railroad Successor`,Year,rate) %>% 
-        unique() %>% 
+      td %>%
+        group_by(`Railroad Successor`, Year) %>%
+        summarise(count = n(), final_traffic = sum(unique(traffic_value)), .groups = "drop") %>%
+        mutate(rate = count / final_traffic) %>%
+        select(`Railroad Successor`, Year, `Accident Count` = count, `Traffic (million train miles)` = final_traffic, rate) %>%
         rename(`Class I RR Company` = `Railroad Successor`)
     } else if (input$breakdown == "Track Type") {
-      traffic_data() %>% 
-        mutate(ACCTRK = as.factor(ACCTRK)) %>% 
-        group_by(ACCTRK,Year) %>% 
-        mutate(count=n(),final_traffic = sum(unique(traffic_value))) %>% 
-        ungroup() %>% 
-        group_by(Year) %>%
-        mutate(final_traffic = max(final_traffic)) %>% 
-        mutate(rate=count/final_traffic) %>% 
-        unique() %>% 
-        select(ACCTRK,Year,rate) %>% 
-        unique() %>% 
+      td %>%
+        mutate(ACCTRK = as.factor(ACCTRK)) %>%
+        group_by(ACCTRK, Year) %>%
+        summarise(count = n(), final_traffic = sum(unique(traffic_value)), .groups = "drop") %>%
+        mutate(rate = count / final_traffic) %>%
+        select(ACCTRK, Year, `Accident Count` = count, `Traffic (million train miles)` = final_traffic, rate) %>%
         rename(`Track Type` = ACCTRK)
-    } 
+    }
     
   })
   
@@ -436,9 +437,9 @@ server <- function(input, output) {
     df = data()   
     
     metric_col = switch(input$breakdown_hazmat,
-                         "Hazmat Involved"  = "CARS",
-                         "Hazmat Damaged"   = "CARSDMG",
-                         "Hazmat Released"  = "CARSHZD")
+                        "Hazmat Involved"  = "CARS",
+                        "Hazmat Damaged"   = "CARSDMG",
+                        "Hazmat Released"  = "CARSHZD")
     
     df %>%
       mutate(
@@ -460,90 +461,40 @@ server <- function(input, output) {
         speed_bin = factor(speed_bin, levels = speed_labels),
         car_bin   = factor(car_bin,   levels = car_labels)
       ) %>%
-    arrange(speed_bin, car_bin)
+      arrange(speed_bin, car_bin)
   })
   
-  summarize = eventReactive(input$Button0, {
+  summary_table = eventReactive(input$Button0, {
     
     if (input$plot_type == "Frequency vs. Severity") {
       
-      if (input$cause_group == "FRA") {
-        
+      result = if (input$cause_group == "FRA") {
+        df = summary_data_FRA()
         if (input$rank == "Frequency") {
-          
-          if (input$top_n == "Show me top n") {
-            summary_data_FRA() %>% 
-              unique() %>% 
-              arrange(desc(Frequency)) %>% 
-              select(ACCAUSE, `Average Number of Cars Derailed`, Frequency) %>% 
-              head(input$top_N)
-          } else{
-            summary_data_FRA() %>% 
-              unique() %>% 
-              arrange(desc(Frequency)) %>% 
-              select(ACCAUSE, `Average Number of Cars Derailed`, Frequency)
-          }
+          arrange(df, desc(Frequency))
         } else {
-          
-          if (input$top_n == "Show me top n") {
-            summary_data_FRA() %>%
-              unique() %>% 
-              arrange(desc(`Average Number of Cars Derailed`)) %>% 
-              select(ACCAUSE, `Average Number of Cars Derailed`, Frequency) %>% 
-              head(input$top_N)
-          } else{
-            summary_data_FRA() %>% 
-              unique() %>% 
-              arrange(desc(`Average Number of Cars Derailed`)) %>% 
-              select(ACCAUSE, `Average Number of Cars Derailed`, Frequency)
-          }
-        }
+          arrange(df, desc(`Average Number of Cars Derailed`))
+        }  %>% select(ACCAUSE, `Average Number of Cars Derailed`, Frequency)
       } else {
+        df = summary_data_ADL()
         if (input$rank == "Frequency") {
-          
-          if (input$top_n == "Show me top n") {
-            summary_data_ADL() %>% 
-              unique() %>% 
-              arrange(desc(Frequency)) %>% 
-              select(`Group Name`,Group, `Average Number of Cars Derailed`, Frequency) %>% 
-              head(input$top_N)
-          } else{
-            summary_data_ADL() %>% 
-              unique() %>% 
-              arrange(desc(Frequency)) %>% 
-              select(`Group Name`,Group, `Average Number of Cars Derailed`, Frequency)
-          }
-        } else{
-          
-          if (input$top_n == "Show me top n") {
-            summary_data_ADL() %>%
-              unique() %>% 
-              arrange(desc(`Average Number of Cars Derailed`)) %>% 
-              select(`Group Name`,Group, `Average Number of Cars Derailed`, Frequency) %>% 
-              head(input$top_N)
-          } else{
-            summary_data_ADL() %>% 
-              unique() %>% 
-              arrange(desc(`Average Number of Cars Derailed`)) %>% 
-              select(`Group Name`,Group, `Average Number of Cars Derailed`, Frequency)
-          }
-        }
-        
+          arrange(df, desc(Frequency))
+        } else {
+          arrange(df, desc(`Average Number of Cars Derailed`))
+        } %>% select(`Group Name`, Group, `Average Number of Cars Derailed`, Frequency)
       }
+      if (input$top_n == "Show me top n") head(result, input$top_N) else result
+      
     } else if (input$plot_type == "Cars Derailed vs. Accident Cause") {
-      summary_data_ADL() %>% 
-        unique() %>% 
-        arrange(desc(total_derail)) %>% 
-        ungroup() %>% 
-        mutate(`Cumulative Percentage` = paste0(round(cumsum(severity_ratio),3)*100,"%"),`Total Number of Cars` = total_derail) %>% 
-        select(`Group Name`,Group, Frequency, `Total Number of Cars`, `Cumulative Percentage`)
+      summary_data_ADL() %>%
+        arrange(desc(total_derail)) %>%
+        mutate(`Cumulative Percentage` = paste0(round(cumsum(severity_ratio),3)*100,"%"), `Total Number of Cars` = total_derail) %>%
+        select(`Group Name`, Group, Frequency, `Total Number of Cars`, `Cumulative Percentage`)
     } else if (input$plot_type == "Damage Cost vs. Accident Cause") {
-      summary_data_money() %>% 
-        unique() %>% 
-        arrange(desc(total_money)) %>% 
-        ungroup() %>% 
-        mutate(`Cumulative Percentage` = paste0(round(cumsum(money_ratio),3)*100,"%"),`Total Damage Cost` = total_money) %>% 
-        select(`Group Name`,Group, Frequency, `Total Damage Cost`, `Cumulative Percentage`)
+      summary_data_money() %>%
+        arrange(desc(total_money)) %>%
+        mutate(`Cumulative Percentage` = paste0(round(cumsum(money_ratio),3)*100,"%"), `Total Damage Cost` = total_money) %>%
+        select(`Group Name`, Group, Frequency, `Total Damage Cost`, `Cumulative Percentage`)
     } else if (input$plot_type == "Frequency Distribution of Incidents by Damage Amount") {
       data()
     } else if (input$plot_type == "Average Number of Cars Derailed vs. Train Length") {
@@ -580,307 +531,153 @@ server <- function(input, output) {
   
   
   
+  base_theme = theme_bw() +
+    theme(
+      panel.grid.major    = element_blank(),
+      panel.grid.minor    = element_blank(),
+      panel.background    = element_blank(),
+      panel.border        = element_blank(),
+      axis.line           = element_line(colour = "black"),
+      legend.position     = "right",
+      axis.text.x         = element_text(color = "#000000", size = 16, margin = margin(t = 0, r = 0, b = 5, l = 0)),
+      axis.text.y         = element_text(color = "#000000", size = 16, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+      axis.title.y.right  = element_text(color = "#000000", size = 20, face = "bold", margin = margin(t = 0, r = 0, b = 0, l = 10)),
+      axis.title.x        = element_text(color = "#000000", size = 20, face = "bold"),
+      axis.title.y        = element_text(color = "#000000", size = 20, face = "bold", margin = margin(t = 0, r = 0, b = 0, l = 10)),
+      legend.title        = element_text(color = "#000000", size = 16),
+      legend.text         = element_text(color = "#000000", size = 16)
+    )
+  
   plot_data = eventReactive(input$Button0, {
     
     if (input$plot_type == "Frequency vs. Severity") {
       if (input$cause_group == "FRA") {
-        summarize() %>% 
+        summary_table() %>% 
           ggplot(aes(x=Frequency,y=`Average Number of Cars Derailed`))+
           geom_point(shape=19, color="#FF8000", size = 5)+
           geom_text_repel(aes(label = ACCAUSE),size =5, max.overlaps = 3, box.padding = 0.5) +
-          geom_hline(aes(yintercept = mean(`Average Number of Cars Derailed`)), 
-                     linetype = "dashed", color = "#000000") + 
+          geom_hline(aes(yintercept = mean(`Average Number of Cars Derailed`)),
+                     linetype = "dashed", color = "#000000") +
           geom_vline(aes(xintercept = mean(Frequency)),
                      linetype = "dashed", color = "#000000") +
           xlab("Number of Accidents")+
           ylab("Average Number of Cars Derailed") +
-          theme_bw() + 
-          theme(panel.grid.major = element_blank(), 
-                panel.grid.minor = element_blank(),
-                panel.background = element_blank(), 
-                panel.border = element_blank(),
-                axis.line = element_line(colour = "black"),
-                legend.position = "top",
-                axis.text.x = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 5, l = 0)),
-                axis.text.y = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-                axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                            margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                legend.title = element_text(color = "#000000", size = 16),
-                legend.text = element_text(color = "#000000", size = 16))
+          base_theme + theme(legend.position = "top")
       } else {
-        summarize() %>% 
+        summary_table() %>% 
           ggplot(aes(x=Frequency,y=`Average Number of Cars Derailed`))+
           geom_point(shape=19, color="#FF8000", size = 5)+
           geom_text_repel(aes(label = `Group Name`),size =5, max.overlaps = 3, box.padding = 0.5) +
-          geom_hline(aes(yintercept = mean(`Average Number of Cars Derailed`)), 
-                     linetype = "dashed", color = "#000000") + 
+          geom_hline(aes(yintercept = mean(`Average Number of Cars Derailed`)),
+                     linetype = "dashed", color = "#000000") +
           geom_vline(aes(xintercept = mean(Frequency)),
                      linetype = "dashed", color = "#000000") +
           xlab("Number of Accidents")+
           ylab("Average Number of Cars Derailed") +
-          theme_bw() + 
-          theme(panel.grid.major = element_blank(), 
-                panel.grid.minor = element_blank(),
-                panel.background = element_blank(), 
-                panel.border = element_blank(),
-                axis.line = element_line(colour = "black"),
-                legend.position = "top",
-                axis.text.x = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 5, l = 0)),
-                axis.text.y = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-                axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                            margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                legend.title = element_text(color = "#000000", size = 16),
-                legend.text = element_text(color = "#000000", size = 16))
+          base_theme + theme(legend.position = "top")
       }
       
     } else if (input$plot_type == "Cars Derailed vs. Accident Cause") {
-      max_val = max(summarize() %>% 
+      max_val = max(summary_table() %>% 
                       select(`Total Number of Cars`))
-      summarize() %>% 
+      summary_table() %>% 
         ggplot()+
         geom_col(aes(x=fct_reorder(`Group Name`, parse_number(`Cumulative Percentage`)+0.01), y = `Total Number of Cars`), fill = "#0000FF")+
         geom_line(aes(group=1,
                       x=`Group Name`, 
                       y = parse_number(`Cumulative Percentage`)/100 * max(`Total Number of Cars`)),
-                  color = "red", lwd = 1)+
+                  color = "red", linewidth = 1)+
         xlab("Accident Cause")+
         ylab("Number of Cars Derailed") +
-        theme_bw() + 
+        base_theme +
         scale_y_continuous(labels = comma,
-                           sec.axis = sec_axis(~., 
+                           sec.axis = sec_axis(~.,
                                                breaks = seq(0,max_val,max_val/5),
                                                labels = c("0%","20%","40%","60%","80%","100%"),
                                                name = "Cumulative Percentage")) +
-        theme(panel.grid.major = element_blank(), 
-              panel.grid.minor = element_blank(),
-              panel.background = element_blank(), 
-              panel.border = element_blank(),
-              axis.line = element_line(colour = "black"),
-              legend.position = "top",
-              axis.text.x = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 5, l = 0),
-                                         angle = 90, vjust = 0.5, hjust=1),
-              axis.text.y = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                margin = margin(t = 0, r = 0, b = 0, l = 10), angle = 90),
-              axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-              axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                          margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              legend.title = element_text(color = "#000000", size = 16),
-              legend.text = element_text(color = "#000000", size = 16))
+        theme(
+          legend.position = "top",
+          axis.text.x = element_text(color = "#000000", size = 16, margin = margin(t = 0, r = 0, b = 5, l = 0), angle = 90, vjust = 0.5, hjust = 1),
+          axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold", margin = margin(t = 0, r = 0, b = 0, l = 10), angle = 90)
+        )
     } else if (input$plot_type == "Damage Cost vs. Accident Cause") {
-      max_val = max(summarize() %>% 
+      max_val = max(summary_table() %>% 
                       select(`Total Damage Cost`))
-      summarize() %>% 
+      summary_table() %>% 
         ggplot()+
         geom_col(aes(x=fct_reorder(`Group Name`, parse_number(`Cumulative Percentage`)+0.01), y = `Total Damage Cost`), fill = "#FF0000")+
         geom_line(aes(group=1,
                       x=`Group Name`, 
                       y = parse_number(`Cumulative Percentage`)/100 * max(`Total Damage Cost`)),
-                  color = "blue", lwd = 1)+
+                  color = "blue", linewidth = 1)+
         xlab("Accident Cause")+
         ylab("Total Reportable Damage (million $)") +
-        theme_bw() + 
+        base_theme +
         scale_y_continuous(labels = comma,
-                           sec.axis = sec_axis(~., 
+                           sec.axis = sec_axis(~.,
                                                breaks = seq(0,max_val,max_val/5),
                                                labels = c("0%","20%","40%","60%","80%","100%"),
                                                name = "Cumulative Percentage")) +
-        theme(panel.grid.major = element_blank(), 
-              panel.grid.minor = element_blank(),
-              panel.background = element_blank(), 
-              panel.border = element_blank(),
-              axis.line = element_line(colour = "black"),
-              legend.position = "top",
-              axis.text.x = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 5, l = 0),
-                                         angle = 90, vjust = 0.5, hjust=1),
-              axis.text.y = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                margin = margin(t = 0, r = 0, b = 0, l = 10), angle = 90),
-              axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-              axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                          margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              legend.title = element_text(color = "#000000", size = 16),
-              legend.text = element_text(color = "#000000", size = 16))
+        theme(
+          legend.position = "top",
+          axis.text.x = element_text(color = "#000000", size = 16, margin = margin(t = 0, r = 0, b = 5, l = 0), angle = 90, vjust = 0.5, hjust = 1),
+          axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold", margin = margin(t = 0, r = 0, b = 0, l = 10), angle = 90)
+        )
       
     } else if (input$plot_type == "Frequency Distribution of Incidents by Damage Amount") {
       bin_width = input$break_interval
-      max_val = max(summarize() %>% 
+      max_val = max(summary_table() %>% 
                       select(ACCDMG))
-      min_val = min(summarize() %>% 
+      min_val = min(summary_table() %>% 
                       select(ACCDMG))
       
       breaks = seq(0, max_val + bin_width, by = bin_width)
       limits = c(min_val - bin_width/2, max_val + bin_width/2)
       
-      summarize() %>% 
+      summary_table() %>% 
         ggplot()+
         geom_histogram(aes(x = ACCDMG),breaks = breaks, limits = limits, fill = "blue", color = "black")+
         xlab("Damage Amount ($)")+
         ylab("Frequency") +
-        theme_bw() + 
-        theme(panel.grid.major = element_blank(), 
-              panel.grid.minor = element_blank(),
-              panel.background = element_blank(), 
-              panel.border = element_blank(),
-              axis.line = element_line(colour = "black"),
-              legend.position = "right",
-              axis.text.x = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 5, l = 0)),
-              axis.text.y = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-              axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                          margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              legend.title = element_text(color = "#000000", size = 16),
-              legend.text = element_text(color = "#000000", size = 16))
+        base_theme
       
       
     } else if (input$plot_type == "Average Number of Cars Derailed vs. Train Length") {
-      summarize() %>%
+      summary_table() %>%
         ggplot() +
-        geom_line(aes(group = 1, x = LEN_R, y = `Average # of Cars Derailed`), size = 3, color = "#0000FF")+
+        geom_line(aes(group = 1, x = LEN_R, y = `Average # of Cars Derailed`), linewidth = 3, color = "#0000FF")+
         labs(x = "Train Length Interval (cars)",
              y = "Average Number of Cars Derailed") +
-        theme_bw() + 
-        theme(panel.grid.major = element_blank(), 
-              panel.grid.minor = element_blank(),
-              panel.background = element_blank(), 
-              panel.border = element_blank(),
-              axis.line = element_line(colour = "black"),
-              legend.position = "right",
-              axis.text.x = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 5, l = 0)),
-              axis.text.y = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-              axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                          margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              legend.title = element_text(color = "#000000", size = 16),
-              legend.text = element_text(color = "#000000", size = 16)) +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+        base_theme + theme(axis.text.x = element_text(angle = 45, hjust = 1))
       
     } else if (input$plot_type == "Rate Analysis") {
       
       if (input$breakdown == "Track Type") {
-        summary_data_rate() %>% 
-          ggplot(aes(x=as.character(Year),y=rate,
-                     group=`Track Type`,
-                     color=`Track Type`))+
-          geom_line(size=2)+
-          xlab("Year")+
-          ylab("Rate (per Million Train Miles)") +
-          theme_bw() + 
-          theme(panel.grid.major = element_blank(), 
-                panel.grid.minor = element_blank(),
-                panel.background = element_blank(), 
-                panel.border = element_blank(),
-                axis.line = element_line(colour = "black"),
-                legend.position = "right",
-                axis.text.x = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 5, l = 0)),
-                axis.text.y = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                  margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-                axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                            margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                legend.title = element_text(color = "#000000", size = 16),
-                legend.text = element_text(color = "#000000", size = 16))
+        summary_data_rate() %>%
+          ggplot(aes(x=as.character(Year), y=rate, group=`Track Type`, color=`Track Type`)) +
+          geom_line(linewidth=2) +
+          xlab("Year") + ylab("Rate (per Million Train Miles)") +
+          base_theme
       } else if (input$breakdown == "Class I RR Company") {
-        summary_data_rate() %>% 
-          ggplot(aes(x=as.character(Year),y=rate,
-                     group=`Class I RR Company`,
-                     color=`Class I RR Company`))+
-          geom_line(size=2)+
-          xlab("Year")+
-          ylab("Rate (per Million Train Miles)") +
-          theme_bw() + 
-          theme(panel.grid.major = element_blank(), 
-                panel.grid.minor = element_blank(),
-                panel.background = element_blank(), 
-                panel.border = element_blank(),
-                axis.line = element_line(colour = "black"),
-                legend.position = "right",
-                axis.text.x = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 5, l = 0)),
-                axis.text.y = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                  margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-                axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                            margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                legend.title = element_text(color = "#000000", size = 16),
-                legend.text = element_text(color = "#000000", size = 16))+
+        summary_data_rate() %>%
+          ggplot(aes(x=as.character(Year), y=rate, group=`Class I RR Company`, color=`Class I RR Company`)) +
+          geom_line(linewidth=2) +
+          xlab("Year") + ylab("Rate (per Million Train Miles)") +
+          base_theme +
           scale_color_manual(values = c("#000000", "#EBC201", "#0000FF", "#FF00FF", "#00E8A6", "#FF0000", "#FFFF00"))
       } else if (input$breakdown == "Accident Cause Group") {
-        summary_data_rate() %>% 
-          ggplot(aes(x=as.character(Year),y=rate,
-                     group=`Accident Cause Group`,
-                     color=`Accident Cause Group`))+
-          geom_line(size=2)+
-          xlab("Year")+
-          ylab("Rate (per Million Train Miles)") +
-          theme_bw() + 
-          theme(panel.grid.major = element_blank(), 
-                panel.grid.minor = element_blank(),
-                panel.background = element_blank(), 
-                panel.border = element_blank(),
-                axis.line = element_line(colour = "black"),
-                legend.position = "right",
-                axis.text.x = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 5, l = 0)),
-                axis.text.y = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                  margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-                axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                            margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                legend.title = element_text(color = "#000000", size = 16),
-                legend.text = element_text(color = "#000000", size = 16))+
+        summary_data_rate() %>%
+          ggplot(aes(x=as.character(Year), y=rate, group=`Accident Cause Group`, color=`Accident Cause Group`)) +
+          geom_line(linewidth=2) +
+          xlab("Year") + ylab("Rate (per Million Train Miles)") +
+          base_theme +
           scale_color_manual(values = c("#000000", "#EBC201", "#0000FF", "#FF00FF", "#00E8A6"))
       } else if (input$breakdown == "Accident Type") {
-        summary_data_rate() %>% 
-          ggplot(aes(x=as.character(Year),y=rate,
-                     group=`Accident Type`,
-                     color=`Accident Type`))+
-          geom_line(size=2)+
-          xlab("Year")+
-          ylab("Rate (per Million Train Miles)") +
-          theme_bw() + 
-          theme(panel.grid.major = element_blank(), 
-                panel.grid.minor = element_blank(),
-                panel.background = element_blank(), 
-                panel.border = element_blank(),
-                axis.line = element_line(colour = "black"),
-                legend.position = "right",
-                axis.text.x = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 5, l = 0)),
-                axis.text.y = element_text(color = "#000000", size = 16,
-                                           margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                  margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-                axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                            margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                legend.title = element_text(color = "#000000", size = 16),
-                legend.text = element_text(color = "#000000", size = 16))
+        summary_data_rate() %>%
+          ggplot(aes(x=as.character(Year), y=rate, group=`Accident Type`, color=`Accident Type`)) +
+          geom_line(linewidth=2) +
+          xlab("Year") + ylab("Rate (per Million Train Miles)") +
+          base_theme
       }
       
     }
@@ -895,24 +692,7 @@ server <- function(input, output) {
                             name = "Count") +
         labs(x = "Train Speed (mph)",
              y = "Cars Derailed") +
-        theme_bw() +
-        theme(panel.grid.major = element_blank(), 
-              panel.grid.minor = element_blank(),
-              panel.background = element_blank(), 
-              panel.border = element_blank(),
-              axis.line = element_line(colour = "black"),
-              legend.position = "right",
-              axis.text.x = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 5, l = 0)),
-              axis.text.y = element_text(color = "#000000", size = 16,
-                                         margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              axis.title.y.right = element_text(color = "#000000", size = 20, face = "bold",
-                                                margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              axis.title.x = element_text(color = "#000000", size = 20, face="bold"),
-              axis.title.y = element_text(color = "#000000", size = 20, face="bold",
-                                          margin = margin(t = 0, r = 0, b = 0, l = 10)),
-              legend.title = element_text(color = "#000000", size = 16),
-              legend.text = element_text(color = "#000000", size = 16))
+        base_theme
     }
     
   })
@@ -925,9 +705,9 @@ server <- function(input, output) {
     
     if (input$plot_type == "Frequency vs. Severity" || input$plot_type == "Cars Derailed vs. Accident Cause" ||
         input$plot_type == "Average Number of Cars Derailed vs. Train Length") {
-      summarize()
+      summary_table()
     } else if (input$plot_type == "Damage Cost vs. Accident Cause") {
-      summarize() %>% 
+      summary_table() %>% 
         rename(`Total Damage Cost (million $)` = `Total Damage Cost`)
     } else if (input$plot_type == "Rate Analysis") {
       summary_data_rate()
@@ -951,7 +731,7 @@ server <- function(input, output) {
     data_api() %>% 
       select(reportingrailroadcode, accidentnumber, date, accidenttype, tracktype, equipmenttype)
   })
-
+  
   
   observeEvent(input$Button1, {
     showModal(modalDialog("Current Visualizer contains FRA REA data from 1997-2025. Please contact Xinhao Liu (xinhaol2@illinois.edu) if you have
@@ -1016,7 +796,7 @@ server <- function(input, output) {
     content = function(file){
       if (input$plot_type == "Frequency vs. Severity" || input$plot_type == "Cars Derailed vs. Accident Cause" ||
           input$plot_type == "Damage Cost vs. Accident Cause" || input$plot_type == "Average Number of Cars Derailed vs. Train Length") {
-        write.csv(summarize(), file)
+        write.csv(summary_table(), file)
       } else if (input$plot_type == "Rate Analysis") {
         write.csv(summary_data_rate(), file)
       } else if (input$plot_type == "Frequency Distribution of Incidents by Damage Amount") {
