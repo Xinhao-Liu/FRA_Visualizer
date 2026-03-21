@@ -103,8 +103,8 @@ ui <- fluidPage(
           condition = "input.RRClass_type == 'class1'",
           checkboxGroupInput("ClassI_type",
                              h4("Class I Railroad Name"),
-                             choices = c("BNSF"="BNSF","KCS"="KCS","UP"="UP","CSX"="CSX","NS"="NS","CN"="CNGT","CP"="CP(US)"),
-                             selected = c("BNSF","KCS","UP","CSX","NS","CNGT","CP(US)"))),
+                             choices = c("BNSF"="BNSF","KCS"="KCS","UP"="UP","CSX"="CSX","NS"="NS","CN"="CNGT","CP"="CP(US)","CPKC"="CPKC"),
+                             selected = c("BNSF","KCS","UP","CSX","NS","CNGT","CP(US)","CPKC"))),
         
         checkboxGroupInput("accident_type",
                            h4("Accident Type(s)"),
@@ -170,7 +170,7 @@ ui <- fluidPage(
 )
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   correct = "UIUCRailTEC"
   
@@ -287,13 +287,38 @@ server <- function(input, output) {
   traffic_data = eventReactive(input$Button0, {
     
     inter = data() %>%
-      mutate(`Railroad Successor` = ifelse(`Railroad Successor` == "CNGT", "CN",
-                                           ifelse(`Railroad Successor` == "CP(US)", "CP", `Railroad Successor`))) %>% 
-      mutate(traffic_name = paste(ifelse(`class 1`=="class1", `Railroad Successor`, "Non"),
-                                  "ClassI",
-                                  "Freight", 
-                                  ifelse(ACCTRK%in%c(1,3),"Both_Mainline","Non_Mainline"),sep = "_")) %>% 
-      select(`Railroad Successor`,`class 1`,ACCTRK,Accident_type,Category,traffic_name,Year) %>% 
+      mutate(`Railroad Successor` = case_when(
+        `Railroad Successor` == "CNGT"   ~ "CN",
+        `Railroad Successor` == "CP(US)" ~ "CP",
+        TRUE                             ~ `Railroad Successor`
+      )) %>%
+      mutate(traffic_name = case_when(
+        # Class I Freight
+        `class 1` == "class1" & TrainType == "F" & ACCTRK %in% c(1,3) ~
+          paste0(`Railroad Successor`, "_ClassI_Freight_Both_Mainline"),
+        `class 1` == "class1" & TrainType == "F" & !ACCTRK %in% c(1,3) ~
+          paste0(`Railroad Successor`, "_ClassI_Freight_Non_Mainline"),
+        # Class I Passenger (no track split in CSV)
+        `class 1` == "class1" & TrainType == "P" ~
+          paste0(`Railroad Successor`, "_All_Passenger"),
+        # Class I Other → All_Train
+        `class 1` == "class1" & TrainType == "O" & ACCTRK %in% c(1,3) ~
+          paste0(`Railroad Successor`, "_All_Train_Mainline"),
+        `class 1` == "class1" & TrainType == "O" & !ACCTRK %in% c(1,3) ~
+          paste0(`Railroad Successor`, "_All_Train_Non_Mainline"),
+        # Non-Class I Freight
+        `class 1` != "class1" & TrainType == "F" & ACCTRK %in% c(1,3) ~
+          "Non_ClassI_Freight_Both_Mainline",
+        `class 1` != "class1" & TrainType == "F" & !ACCTRK %in% c(1,3) ~
+          "Non_ClassI_Freight_Non_Mainline",
+        # Non-Class I Passenger/Other — no dedicated row, use aggregate
+        `class 1` != "class1" & TrainType == "P" ~ "All_Passenger",
+        `class 1` != "class1" & TrainType == "O" & ACCTRK %in% c(1,3) ~
+          "All_Train_Mainline",
+        `class 1` != "class1" & TrainType == "O" & !ACCTRK %in% c(1,3) ~
+          "All_Train_Non_Mainline"
+      )) %>%
+      select(`Railroad Successor`,`class 1`,ACCTRK,TrainType,Accident_type,Category,traffic_name,Year) %>%
       left_join(raw_traffic_csv(),by=c("traffic_name"="...1")) %>%
       mutate(index = Year - 1996 + 8, traffic_value = 0)
     
@@ -308,7 +333,7 @@ server <- function(input, output) {
     
     final = final %>% 
       mutate(traffic_value = traffic_val) %>% 
-      select(`Railroad Successor`,`class 1`,ACCTRK,Accident_type,Category,traffic_value,Year)
+      select(`Railroad Successor`,`class 1`,ACCTRK,TrainType,Accident_type,Category,traffic_value,Year)
     
     final
     
@@ -737,6 +762,22 @@ server <- function(input, output) {
     showModal(modalDialog("Current Visualizer contains FRA REA data from 1997-2025. Please contact Xinhao Liu (xinhaol2@illinois.edu) if you have
                           any questions or suggestions! Enjoy!" ))
   })
+  
+  # When non-1 is added: reset ClassI_type to all, and remove "Class I RR Company" from breakdown
+  # When non-1 is removed: restore "Class I RR Company" option
+  observeEvent(input$RRClass_type, {
+    if ("non-1" %in% input$RRClass_type) {
+      updateCheckboxGroupInput(session, "ClassI_type",
+                               selected = c("BNSF","KCS","UP","CSX","NS","CNGT","CP(US)","CPKC"))
+      updateRadioButtons(session, "breakdown",
+                         choices = c("Accident Type","Accident Cause Group","Track Type"),
+                         selected = if (input$breakdown == "Class I RR Company") "Accident Type" else input$breakdown)
+    } else {
+      updateRadioButtons(session, "breakdown",
+                         choices = c("Accident Type","Accident Cause Group","Class I RR Company","Track Type"),
+                         selected = input$breakdown)
+    }
+  }, ignoreInit = TRUE)
   
   show_data_info = eventReactive(input$Button0, {
     "You can download the processed FRA REA data based on the filters you have selected on the left. The table above is an example that only shows eight columns."
