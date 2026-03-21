@@ -689,7 +689,7 @@ server <- function(input, output, session) {
           geom_line(linewidth=2) +
           xlab("Year") + ylab("Rate (per Million Train Miles)") +
           base_theme +
-          scale_color_manual(values = c("#000000", "#EBC201", "#0000FF", "#FF00FF", "#00E8A6", "#FF0000", "#FFFF00"))
+          scale_color_manual(values = c("#000000", "#EBC201", "#0000FF", "#FF00FF", "#00E8A6", "#FF0000", "#FFFF00", "#808080"))
       } else if (input$breakdown == "Accident Cause Group") {
         summary_data_rate() %>%
           ggplot(aes(x=as.character(Year), y=rate, group=`Accident Cause Group`, color=`Accident Cause Group`)) +
